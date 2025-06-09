@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Simulasi Antrian FIFO</title>
+  <style>
+    :root {
+      --color-bg: #ffffff;
+      --color-text-primary: #111827;
+      --color-text-secondary: #6b7280;
+      --color-card-bg: #f9fafb;
+      --color-shadow: rgba(0, 0, 0, 0.05);
+      --radius: 0.75rem;
+      --font-sans: 'Poppins', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    }
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@600;700&display=swap');
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background-color: var(--color-bg);
+      font-family: var(--font-sans);
+      color: var(--color-text-secondary);
+      display: flex;
+      justify-content: center;
+      padding: 2rem;
+      min-height: 100vh;
+      line-height: 1.6;
+    }
+
+    main {
+      max-width: 700px;
+      width: 100%;
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      background: var(--color-bg);
+      padding: 1rem 0;
+      margin-bottom: 2rem;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-weight: 700;
+      font-size: 1.5rem;
+      color: var(--color-text-primary);
+      z-index: 10;
+      user-select: none;
+    }
+
+    header nav a {
+      color: var(--color-text-secondary);
+      text-decoration: none;
+      margin-left: 1.25rem;
+      font-weight: 600;
+      font-size: 1rem;
+      transition: color 0.3s ease;
+    }
+    header nav a:hover,
+    header nav a:focus {
+      color: var(--color-text-primary);
+      outline: none;
+    }
+
+    h1 {
+      font-size: 3rem;
+      font-weight: 700;
+      margin-bottom: 1rem;
+      color: var(--color-text-primary);
+    }
+    h2 {
+      font-weight: 600;
+      font-size: 2rem;
+      margin-top: 2rem;
+      margin-bottom: 1rem;
+      color: var(--color-text-primary);
+    }
+
+    .card {
+      background: var(--color-card-bg);
+      border-radius: var(--radius);
+      box-shadow: 0 2px 6px var(--color-shadow);
+      padding: 1.5rem 2rem;
+      margin-bottom: 2rem;
+    }
+
+    input[type="text"] {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 1px solid #d1d5db;
+      border-radius: var(--radius);
+      font-size: 1rem;
+      color: var(--color-text-primary);
+      transition: border-color 0.3s ease;
+    }
+    input[type="text"]:focus {
+      outline: none;
+      border-color: #2563eb; /* Blue focus */
+      box-shadow: 0 0 0 3px rgb(37 99 235 / 0.3);
+    }
+
+    button {
+      background-color: #111827; /* Dark text */
+      color: #ffffff;
+      border: none;
+      font-weight: 600;
+      font-size: 1.125rem;
+      padding: 0.85rem 1rem;
+      border-radius: var(--radius);
+      cursor: pointer;
+      width: 100%;
+      margin-top: 1rem;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+      user-select: none;
+    }
+    button:hover,
+    button:focus {
+      background-color: #2563eb;
+      outline: none;
+      transform: scale(1.03);
+    }
+    button:active {
+      transform: scale(0.98);
+    }
+
+    #status {
+      margin-top: 1rem;
+      padding: 1rem 1.5rem;
+      background: var(--color-card-bg);
+      border-radius: var(--radius);
+      box-shadow: 0 1px 3px var(--color-shadow);
+      color: var(--color-text-primary);
+      font-size: 1.1rem;
+      line-height: 1.4;
+      user-select: none;
+    }
+
+    #queue {
+      list-style-type: none;
+      padding-left: 0;
+      margin-top: 0;
+    }
+
+    #queue li {
+      background-color: var(--color-card-bg);
+      border-radius: var(--radius);
+      margin-bottom: 0.75rem;
+      padding: 0.85rem 1.25rem;
+      box-shadow: 0 1px 3px var(--color-shadow);
+      color: var(--color-text-primary);
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+  <main role="main" aria-label="Sistem Antrian FIFO">
+    <header>
+      <div>Sistem Antrian</div>
+      <nav aria-label="Navigasi utama">
+        <a href="#ambil-nomor">Ambil Nomor</a>
+        <a href="#antrian-saat-ini">Antrian</a>
+      </nav>
+    </header>
+
+    <section class="card" id="ambil-nomor">
+      <h1>Simulasi Antrian FIFO</h1>
+      <h2>Ambil Nomor</h2>
+      <input type="text" id="nama" placeholder="Masukkan nama" aria-label="Masukkan nama Anda" />
+      <button id="btnAmbil" type="button">Ambil Nomor</button>
+      <div id="status" aria-live="polite" aria-atomic="true"></div>
+    </section>
+
+    <section class="card" id="antrian-saat-ini">
+      <h2>Antrian Saat Ini</h2>
+      <ul id="queue" aria-live="polite" aria-atomic="true"></ul>
+      <button id="btnPanggil" type="button">Panggil Antrian Berikutnya</button>
+    </section>
+  </main>
+
+  <script>
+    (function() {
+      const antrian = [];
+      let nomorUrut = 1;
+      const waktuPelayanan = 5; // menit per orang
+
+      const inputNama = document.getElementById('nama');
+      const btnAmbil = document.getElementById('btnAmbil');
+      const btnPanggil = document.getElementById('btnPanggil');
+      const statusDiv = document.getElementById('status');
+      const queueList = document.getElementById('queue');
+
+      function formatWaktu(date) {
+        return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+
+      function tampilkanStatus(tiket) {
+        statusDiv.innerHTML = `
+          <h3>Status Antrian Anda</h3>
+          <p><strong>Nomor:</strong> ${tiket.nomor}</p>
+          <p><strong>Nama:</strong> ${tiket.nama}</p>
+          <p><strong>Waktu Masuk:</strong> ${formatWaktu(tiket.waktuMasuk)}</p>
+          <p><strong>Estimasi Mulai:</strong> ${formatWaktu(tiket.estimasiMulai)}</p>
+          <p><strong>Estimasi Selesai:</strong> ${formatWaktu(tiket.estimasiSelesai)}</p>
+          <p><strong>Antrian di depan:</strong> ${antrian.indexOf(tiket)}</p>
+        `;
+      }
+
+      function renderQueue() {
+        queueList.innerHTML = '';
+        antrian.forEach(t => {
+          const li = document.createElement('li');
+          li.textContent = `${t.nomor} - ${t.nama}`;
+          queueList.appendChild(li);
+        });
+      }
+
+      function ambilNomor() {
+        const nama = inputNama.value.trim();
+        if (!nama) {
+          alert("Nama harus diisi.");
+          inputNama.focus();
+          return;
+        }
+
+        const posisi = antrian.length;
+        const now = new Date();
+        const estimasiMulai = new Date(now.getTime() + posisi * waktuPelayanan * 60000);
+        const estimasiSelesai = new Date(estimasiMulai.getTime() + waktuPelayanan * 60000);
+
+        const tiket = {
+          nomor: nomorUrut++,
+          nama,
+          estimasiMulai,
+          estimasiSelesai,
+          waktuMasuk: now
+        };
+
+        antrian.push(tiket);
+        tampilkanStatus(tiket);
+        renderQueue();
+        inputNama.value = '';
+        inputNama.focus();
+      }
+
+      function panggilBerikutnya() {
+        if (antrian.length > 0) {
+          const dipanggil = antrian.shift();
+          alert(`Memanggil nomor: ${dipanggil.nomor} - ${dipanggil.nama}`);
+          renderQueue();
+          // Clear status if queue is empty or if last ticket was called
+          if (antrian.length === 0) statusDiv.innerHTML = '';
+          else tampilkanStatus(antrian[0]);
+        } else {
+          alert("Antrian kosong.");
+          statusDiv.innerHTML = '';
+        }
+      }
+
+      btnAmbil.addEventListener('click', ambilNomor);
+      btnPanggil.addEventListener('click', panggilBerikutnya);
+      inputNama.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') ambilNomor();
+      });
+
+    })();
+  </script>
+</body>
+</html>
+
